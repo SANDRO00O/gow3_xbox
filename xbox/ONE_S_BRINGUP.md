@@ -44,9 +44,11 @@ The log should identify the device as `0x2a7361d9` and report the `Xbox One gene
 - `D3D12_OPTIONS4`: shared-resource compatibility tier, native 16-bit shader operations, and 64 KiB-aligned MSAA support.
 - `R8G8B8A8_UNORM` format support flags, used by the Vulkan/D3D12 shared presentation image.
 
-Treat these values as runtime evidence, not assumptions based on the console family. In particular, do not enable native 16-bit shader operations or assume cross-API image sharing solely because the graphics probe reaches the D3D12 device.
+Treat these values as runtime evidence, not assumptions based on the console family. In particular, do not enable native 16-bit shader operations solely because the shader model query succeeds.
 
-The new `Graphics probe stage:` records show the last completed Vulkan/DXGI stage. A successful first milestone ends with:
+A shared-resource tier of `0` is not the same as "no sharing": Microsoft's tier-0 list explicitly includes `DXGI_FORMAT_R8G8B8A8_UNORM`, the bridge's current format. The definitive test for this path remains successful Vulkan export plus D3D12 `OpenSharedHandle`. See [Microsoft's tier definitions](https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_shared_resource_compatibility_tier).
+
+The new `Graphics probe stage:` records show the last completed Vulkan/DXGI stage. Within the presentation bridge, `Graphics bridge stage:` records distinguish adapter lookup, D3D12 device creation, CoreWindow swap-chain creation, external Vulkan image allocation, memory export, and D3D12 handle opening. A successful first milestone ends with:
 
 - `CoreWindow first frame presented`
 - `Graphics probe: Vulkan clear -> shared D3D12 image -> CoreWindow PRESENTED`
