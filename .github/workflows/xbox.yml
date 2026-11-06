@@ -170,7 +170,8 @@ jobs:
           if-no-files-found: error
 
       - name: Release
-        if: inputs.release
+        # The One S bring-up is an experimental test branch; never publish a release from it.
+        if: inputs.release && github.ref != 'refs/heads/xbox-one-s/bring-up'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.package.outputs.version }}
