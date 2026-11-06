@@ -82,7 +82,7 @@ struct Presenter::Impl {
         if(event) CloseHandle(event);
     }
 };
-Presenter::Presenter(vk::PhysicalDevice physical,vk::Device device,vk::Queue queue,u32 family,u32 width,u32 height)
+Presenter::Presenter(vk::PhysicalDevice physical,vk::Device device,vk::Queue queue,u32 family,u32 width,u32 height,bool xbox_one_generation)
     : impl(std::make_unique<Impl>()) {
     auto& p=*impl; p.device=device; p.queue=queue; p.family=family;
     auto ids=physical.getProperties2<vk::PhysicalDeviceProperties2,vk::PhysicalDeviceIDProperties>();
@@ -96,13 +96,24 @@ Presenter::Presenter(vk::PhysicalDevice physical,vk::Device device,vk::Queue que
     Check(D3D12CreateDevice(adapter.Get(),D3D_FEATURE_LEVEL_11_0,IID_PPV_ARGS(&p.native)),"Create presentation device");
     D3D12_COMMAND_QUEUE_DESC queue_desc{};
     Check(p.native->CreateCommandQueue(&queue_desc,IID_PPV_ARGS(&p.native_queue)),"Create presentation queue");
+    std::puts("Graphics bridge: D3D12 device and presentation queue ready");
     DXGI_SWAP_CHAIN_DESC1 desc{};
     desc.Width=width; desc.Height=height; desc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;
     desc.SampleDesc.Count=1; desc.BufferUsage=DXGI_USAGE_RENDER_TARGET_OUTPUT; desc.BufferCount=2;
-    desc.SwapEffect=DXGI_SWAP_EFFECT_FLIP_DISCARD; desc.Scaling=DXGI_SCALING_STRETCH;
+    desc.SwapEffect=xbox_one_generation ? DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL : DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    desc.Scaling=DXGI_SCALING_STRETCH; desc.AlphaMode=DXGI_ALPHA_MODE_IGNORE;
     ComPtr<IUnknown> window; window.Attach(gow3_uwp_core_window());
+    if(!window) throw std::runtime_error("CoreWindow is unavailable");
     ComPtr<IDXGISwapChain1> chain;
-    Check(factory->CreateSwapChainForCoreWindow(p.native_queue.Get(),window.Get(),&desc,nullptr,&chain),"Create CoreWindow swapchain");
+    if(xbox_one_generation) {
+        std::puts("CoreWindow swapchain: Xbox One generation (ID3D12Device, FLIP_SEQUENTIAL)");
+        Check(factory->CreateSwapChainForCoreWindow(p.native.Get(),window.Get(),&desc,nullptr,&chain),
+              "Create Xbox One CoreWindow swapchain");
+    } else {
+        std::puts("CoreWindow swapchain: Xbox Series (ID3D12CommandQueue, FLIP_DISCARD)");
+        Check(factory->CreateSwapChainForCoreWindow(p.native_queue.Get(),window.Get(),&desc,nullptr,&chain),
+              "Create Xbox Series CoreWindow swapchain");
+    }
     Check(chain.As(&p.swapchain),"Query CoreWindow swapchain");
     Check(p.native->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,IID_PPV_ARGS(&p.allocator)),"Create copy allocator");
     Check(p.native->CreateCommandList(0,D3D12_COMMAND_LIST_TYPE_DIRECT,p.allocator.Get(),nullptr,IID_PPV_ARGS(&p.list)),"Create copy list");
@@ -130,6 +141,7 @@ Presenter::Presenter(vk::PhysicalDevice physical,vk::Device device,vk::Queue que
     Check(exported.result,"Export presentation image");
     HRESULT opened=p.native->OpenSharedHandle(exported.value,IID_PPV_ARGS(&p.source));
     CloseHandle(exported.value); Check(opened,"Open presentation image in D3D12");
+    std::puts("Graphics bridge: Vulkan shared image opened by D3D12");
     auto view_result=device.createImageView({.image=p.image,.viewType=vk::ImageViewType::e2D,
         .format=vk::Format::eR8G8B8A8Unorm,.subresourceRange={vk::ImageAspectFlagBits::eColor,0,1,0,1}});
     Check(view_result.result,"Create presentation view"); p.view=view_result.value;
