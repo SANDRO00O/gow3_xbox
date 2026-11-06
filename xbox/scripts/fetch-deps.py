@@ -14,6 +14,8 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -43,8 +45,31 @@ SOURCES = {
 
 def download(url):
     request = urllib.request.Request(url, headers={'User-Agent': 'Gow3-UWP-build'})
-    with urllib.request.urlopen(request, timeout=120) as response:
-        return response.read()
+    retryable_http = {408, 425, 429, 500, 502, 503, 504}
+    attempts = 5
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            if error.code not in retryable_http or attempt == attempts:
+                raise
+            retry_after = error.headers.get('Retry-After')
+            try:
+                delay = min(60, max(1, int(retry_after))) if retry_after else min(60, 5 * (2 ** (attempt - 1)))
+            except ValueError:
+                delay = min(60, 5 * (2 ** (attempt - 1)))
+            print(f'  Temporary HTTP {error.code} downloading {url}; retry {attempt + 1}/{attempts} in {delay}s',
+                  file=sys.stderr, flush=True)
+            time.sleep(delay)
+        except (urllib.error.URLError, TimeoutError, OSError) as error:
+            if attempt == attempts:
+                raise
+            delay = min(60, 5 * (2 ** (attempt - 1)))
+            print(f'  Temporary network error downloading {url}: {error}; retry {attempt + 1}/{attempts} in {delay}s',
+                  file=sys.stderr, flush=True)
+            time.sleep(delay)
+    raise RuntimeError(f'Could not download {url} after {attempts} attempts')
 
 
 def unpack(name, url, data, target):
