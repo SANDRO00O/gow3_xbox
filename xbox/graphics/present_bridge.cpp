@@ -20,12 +20,12 @@ static void Check(HRESULT result, const char* operation) {
 }
 static void Check(vk::Result result, const char* operation) {
     if (result != vk::Result::eSuccess) {
-        std::fprintf(stderr,"%s: Vulkan %d\\n",operation,static_cast<int>(result));
+        std::fprintf(stderr,"%s: Vulkan %d\n",operation,static_cast<int>(result));
         throw std::runtime_error(operation);
     }
 }
 static void LogD3D12Capabilities(ID3D12Device* device) {
-    std::printf("D3D12 capabilities: feature level=0x%04x\\n",
+    std::printf("D3D12 capabilities: feature level=0x%04x\n",
                 static_cast<unsigned>(device->GetFeatureLevel()));
 
     const D3D_SHADER_MODEL candidates[] = {
@@ -40,11 +40,11 @@ static void LogD3D12Capabilities(ID3D12Device* device) {
             D3D12_FEATURE_SHADER_MODEL,&model,sizeof(model));
         if(shader_result==E_INVALIDARG) continue;
         if(FAILED(shader_result)) {
-            std::printf("D3D12 shader-model query failed (0x%08lx)\\n",
+            std::printf("D3D12 shader-model query failed (0x%08lx)\n",
                         static_cast<unsigned long>(shader_result));
             break;
         }
-        std::printf("D3D12 capabilities: highest shader model=0x%02x\\n",
+        std::printf("D3D12 capabilities: highest shader model=0x%02x\n",
                     static_cast<unsigned>(model.HighestShaderModel));
         shader_model_found=true;
         break;
@@ -56,11 +56,11 @@ static void LogD3D12Capabilities(ID3D12Device* device) {
     HRESULT result=device->CheckFeatureSupport(
         D3D12_FEATURE_D3D12_OPTIONS,&options,sizeof(options));
     if(SUCCEEDED(result)) {
-        std::printf("D3D12 options: resource binding tier=%u, tiled resources tier=%u\\n",
+        std::printf("D3D12 options: resource binding tier=%u, tiled resources tier=%u\n",
                     static_cast<unsigned>(options.ResourceBindingTier),
                     static_cast<unsigned>(options.TiledResourcesTier));
     } else {
-        std::printf("D3D12 options: CheckFeatureSupport failed (0x%08lx)\\n",
+        std::printf("D3D12 options: CheckFeatureSupport failed (0x%08lx)\n",
                     static_cast<unsigned long>(result));
     }
 
@@ -68,12 +68,12 @@ static void LogD3D12Capabilities(ID3D12Device* device) {
     result=device->CheckFeatureSupport(
         D3D12_FEATURE_D3D12_OPTIONS4,&options4,sizeof(options4));
     if(SUCCEEDED(result)) {
-        std::printf("D3D12 options4: shared-resource tier=%u, native-16bit=%u, MSAA-64KB=%u\\n",
+        std::printf("D3D12 options4: shared-resource tier=%u, native-16bit=%u, MSAA-64KB=%u\n",
                     static_cast<unsigned>(options4.SharedResourceCompatibilityTier),
                     options4.Native16BitShaderOpsSupported ? 1u : 0u,
                     options4.MSAA64KBAlignedTextureSupported ? 1u : 0u);
     } else {
-        std::printf("D3D12 options4: CheckFeatureSupport failed (0x%08lx)\\n",
+        std::printf("D3D12 options4: CheckFeatureSupport failed (0x%08lx)\n",
                     static_cast<unsigned long>(result));
     }
 
@@ -83,11 +83,11 @@ static void LogD3D12Capabilities(ID3D12Device* device) {
     result=device->CheckFeatureSupport(
         D3D12_FEATURE_FORMAT_SUPPORT,&format,sizeof(format));
     if(SUCCEEDED(result)) {
-        std::printf("D3D12 RGBA8 support: support1=0x%08lx support2=0x%08lx\\n",
+        std::printf("D3D12 RGBA8 support: support1=0x%08lx support2=0x%08lx\n",
                     static_cast<unsigned long>(format.Support1),
                     static_cast<unsigned long>(format.Support2));
     } else {
-        std::printf("D3D12 RGBA8 support: CheckFeatureSupport failed (0x%08lx)\\n",
+        std::printf("D3D12 RGBA8 support: CheckFeatureSupport failed (0x%08lx)\n",
                     static_cast<unsigned long>(result));
     }
     std::fflush(stdout);
