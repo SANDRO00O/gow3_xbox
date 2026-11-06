@@ -32,7 +32,8 @@ static void Mark(const char* stage) {
 static bool IsXboxOneGeneration(u32 device_id) {
     return device_id==GAMING_DEVICE_DEVICE_ID_XBOX_ONE ||
            device_id==GAMING_DEVICE_DEVICE_ID_XBOX_ONE_S ||
-           device_id==GAMING_DEVICE_DEVICE_ID_XBOX_ONE_X;
+           device_id==GAMING_DEVICE_DEVICE_ID_XBOX_ONE_X ||
+           device_id==GAMING_DEVICE_DEVICE_ID_XBOX_ONE_X_DEVKIT;
 }
 int GraphicsProbe() {
     Mark("query Xbox device model");
