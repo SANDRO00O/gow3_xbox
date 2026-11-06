@@ -37,7 +37,16 @@ Microsoft's reference implementation is [Xbox-ATG-Samples / SimpleCompute12 / De
 3. Launch the app. This diagnostic mode does not require a game dump.
 4. Inspect `LocalState/loader.log`, `LocalState/errors.log`, and `LocalState/dozen.log`.
 
-The log should identify the device as `0x2a7361d9` and report the `Xbox One generation` presentation path. The new `Graphics probe stage:` records show the last completed Vulkan/DXGI stage. A successful first milestone ends with:
+The log should identify the device as `0x2a7361d9` and report the `Xbox One generation` presentation path. Before creating the CoreWindow swap chain, the bridge also records the actual D3D12 values reported by the console:
+
+- Feature level and highest recognized/supported Shader Model.
+- Resource binding tier and tiled-resource tier.
+- `D3D12_OPTIONS4`: shared-resource compatibility tier, native 16-bit shader operations, and 64 KiB-aligned MSAA support.
+- `R8G8B8A8_UNORM` format support flags, used by the Vulkan/D3D12 shared presentation image.
+
+Treat these values as runtime evidence, not assumptions based on the console family. In particular, do not enable native 16-bit shader operations or assume cross-API image sharing solely because the graphics probe reaches the D3D12 device.
+
+The new `Graphics probe stage:` records show the last completed Vulkan/DXGI stage. A successful first milestone ends with:
 
 - `CoreWindow first frame presented`
 - `Graphics probe: Vulkan clear -> shared D3D12 image -> CoreWindow PRESENTED`
