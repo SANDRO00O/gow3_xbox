@@ -43,6 +43,7 @@ The log should identify the device as `0x2a7361d9` and report the `Xbox One gene
 - Resource binding tier and tiled-resource tier.
 - `D3D12_OPTIONS4`: shared-resource compatibility tier, native 16-bit shader operations, and 64 KiB-aligned MSAA support.
 - `R8G8B8A8_UNORM` format support flags, used by the Vulkan/D3D12 shared presentation image.
+- Vulkan's external-image query for the exact RGBA8 usage and `VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT`, including exportability and compatible handle types. The bridge stops with an explicit error if Vulkan does not report the image as exportable.
 
 Treat these values as runtime evidence, not assumptions based on the console family. In particular, do not enable native 16-bit shader operations solely because the shader model query succeeds.
 
