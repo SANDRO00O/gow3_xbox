@@ -32,6 +32,10 @@ Microsoft's reference implementation is [Xbox-ATG-Samples / SimpleCompute12 / De
 
 ## First hardware test: graphics bridge
 
+### Build the test package
+
+The workflow is named **Xbox build**. Open the repository's **Actions** tab, select **Xbox build**, choose **Run workflow**, and select the `xbox-one-s/bring-up` branch. Download the generated package artifact from that run. The workflow also listens for pushes to this branch. Its release step is explicitly disabled for this branch, so it cannot publish an experimental One S package as a release.
+
 1. Install the package in Developer Mode and keep its application type set to **Game**.
 2. Put `graphics` on the first line of `LocalState/run.txt`.
 3. Launch the app. This diagnostic mode does not require a game dump.
