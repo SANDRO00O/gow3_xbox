@@ -24,6 +24,10 @@ static void Check(vk::Result result, const char* operation) {
         throw std::runtime_error(operation);
     }
 }
+static void BridgeMark(const char* stage) {
+    std::printf("Graphics bridge stage: %s\n",stage);
+    std::fflush(stdout);
+}
 static void LogD3D12Capabilities(ID3D12Device* device) {
     std::printf("D3D12 capabilities: feature level=0x%04x\n",
                 static_cast<unsigned>(device->GetFeatureLevel()));
@@ -153,17 +157,22 @@ struct Presenter::Impl {
 Presenter::Presenter(vk::PhysicalDevice physical,vk::Device device,vk::Queue queue,u32 family,u32 width,u32 height,bool xbox_one_generation)
     : impl(std::make_unique<Impl>()) {
     auto& p=*impl; p.device=device; p.queue=queue; p.family=family;
+    BridgeMark("read Vulkan adapter LUID");
     auto ids=physical.getProperties2<vk::PhysicalDeviceProperties2,vk::PhysicalDeviceIDProperties>();
     auto const& id=ids.get<vk::PhysicalDeviceIDProperties>();
     if(!id.deviceLUIDValid) throw std::runtime_error("Dozen adapter has no valid LUID");
     LUID luid{}; std::memcpy(&luid,id.deviceLUID.data(),sizeof(luid));
+    BridgeMark("create DXGI factory");
     ComPtr<IDXGIFactory4> factory;
     Check(CreateDXGIFactory2(0,IID_PPV_ARGS(&factory)),"Create DXGI factory");
+    BridgeMark("find DXGI adapter matching Dozen LUID");
     ComPtr<IDXGIAdapter1> adapter;
     Check(factory->EnumAdapterByLuid(luid,IID_PPV_ARGS(&adapter)),"Find Dozen adapter");
+    BridgeMark("create D3D12 device at feature level 11_0");
     Check(D3D12CreateDevice(adapter.Get(),D3D_FEATURE_LEVEL_11_0,IID_PPV_ARGS(&p.native)),"Create presentation device");
     std::puts("Graphics bridge: querying actual D3D12 capabilities");
     LogD3D12Capabilities(p.native.Get());
+    BridgeMark("create D3D12 direct command queue");
     D3D12_COMMAND_QUEUE_DESC queue_desc{};
     Check(p.native->CreateCommandQueue(&queue_desc,IID_PPV_ARGS(&p.native_queue)),"Create presentation queue");
     std::puts("Graphics bridge: D3D12 device and presentation queue ready");
@@ -172,6 +181,7 @@ Presenter::Presenter(vk::PhysicalDevice physical,vk::Device device,vk::Queue que
     desc.SampleDesc.Count=1; desc.BufferUsage=DXGI_USAGE_RENDER_TARGET_OUTPUT; desc.BufferCount=2;
     desc.SwapEffect=xbox_one_generation ? DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL : DXGI_SWAP_EFFECT_FLIP_DISCARD;
     desc.Scaling=DXGI_SCALING_STRETCH; desc.AlphaMode=DXGI_ALPHA_MODE_IGNORE;
+    BridgeMark("retrieve CoreWindow");
     ComPtr<IUnknown> window; window.Attach(gow3_uwp_core_window());
     if(!window) throw std::runtime_error("CoreWindow is unavailable");
     ComPtr<IDXGISwapChain1> chain;
@@ -184,13 +194,16 @@ Presenter::Presenter(vk::PhysicalDevice physical,vk::Device device,vk::Queue que
         Check(factory->CreateSwapChainForCoreWindow(p.native_queue.Get(),window.Get(),&desc,nullptr,&chain),
               "Create Xbox Series CoreWindow swapchain");
     }
+    BridgeMark("CoreWindow swapchain created; query IDXGISwapChain3");
     Check(chain.As(&p.swapchain),"Query CoreWindow swapchain");
+    BridgeMark("create D3D12 copy allocator, list, and fence");
     Check(p.native->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,IID_PPV_ARGS(&p.allocator)),"Create copy allocator");
     Check(p.native->CreateCommandList(0,D3D12_COMMAND_LIST_TYPE_DIRECT,p.allocator.Get(),nullptr,IID_PPV_ARGS(&p.list)),"Create copy list");
     Check(p.list->Close(),"Close copy list");
     Check(p.native->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&p.fence)),"Create copy fence");
     p.event=CreateEventExW(nullptr,nullptr,0,EVENT_ALL_ACCESS);
     if(!p.event) throw std::runtime_error("Create presentation event");
+    BridgeMark("create Vulkan D3D12-external image");
     const vk::ExternalMemoryImageCreateInfo external{.handleTypes=vk::ExternalMemoryHandleTypeFlagBits::eD3D12Resource};
     vk::ImageCreateInfo image_info{.pNext=&external,.imageType=vk::ImageType::e2D,
         .format=vk::Format::eR8G8B8A8Unorm,.extent={width,height,1},.mipLevels=1,.arrayLayers=1,
@@ -198,20 +211,25 @@ Presenter::Presenter(vk::PhysicalDevice physical,vk::Device device,vk::Queue que
         .usage=vk::ImageUsageFlagBits::eColorAttachment|vk::ImageUsageFlagBits::eTransferSrc|vk::ImageUsageFlagBits::eTransferDst,
         .sharingMode=vk::SharingMode::eExclusive,.initialLayout=vk::ImageLayout::eUndefined};
     auto image_result=device.createImage(image_info); Check(image_result.result,"Create presentation image"); p.image=image_result.value;
+    BridgeMark("query external image memory requirements");
     auto req=device.getImageMemoryRequirements(p.image);
     auto props=physical.getMemoryProperties(); u32 type=props.memoryTypeCount;
     for(u32 i=0;i<props.memoryTypeCount;++i) if((req.memoryTypeBits&(1u<<i)) && (props.memoryTypes[i].propertyFlags&vk::MemoryPropertyFlagBits::eDeviceLocal)) { type=i; break; }
     if(type==props.memoryTypeCount) throw std::runtime_error("No presentation memory type");
+    BridgeMark("allocate and bind dedicated shared image memory");
     vk::MemoryDedicatedAllocateInfo dedicated{.image=p.image};
     vk::ExportMemoryAllocateInfo export_info{.pNext=&dedicated,.handleTypes=vk::ExternalMemoryHandleTypeFlagBits::eD3D12Resource};
     auto allocation=device.allocateMemory({.pNext=&export_info,.allocationSize=req.size,.memoryTypeIndex=type});
     Check(allocation.result,"Allocate shared presentation image"); p.memory=allocation.value;
     Check(device.bindImageMemory(p.image,p.memory,0),"Bind presentation image");
+    BridgeMark("export Vulkan shared memory handle");
     auto exported=device.getMemoryWin32HandleKHR({.memory=p.memory,.handleType=vk::ExternalMemoryHandleTypeFlagBits::eD3D12Resource});
     Check(exported.result,"Export presentation image");
+    BridgeMark("open exported image handle in D3D12");
     HRESULT opened=p.native->OpenSharedHandle(exported.value,IID_PPV_ARGS(&p.source));
     CloseHandle(exported.value); Check(opened,"Open presentation image in D3D12");
     std::puts("Graphics bridge: Vulkan shared image opened by D3D12");
+    BridgeMark("create Vulkan view and command synchronization objects");
     auto view_result=device.createImageView({.image=p.image,.viewType=vk::ImageViewType::e2D,
         .format=vk::Format::eR8G8B8A8Unorm,.subresourceRange={vk::ImageAspectFlagBits::eColor,0,1,0,1}});
     Check(view_result.result,"Create presentation view"); p.view=view_result.value;
