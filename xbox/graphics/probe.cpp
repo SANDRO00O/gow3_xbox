@@ -20,13 +20,13 @@ struct ProbeDisplay {
 static std::unique_ptr<ProbeDisplay> display;
 static void Require(vk::Result r,const char* operation) {
     if(r!=vk::Result::eSuccess) {
-        std::fprintf(stderr,"%s: Vulkan result %d\\n",operation,static_cast<int>(r));
+        std::fprintf(stderr,"%s: Vulkan result %d\n",operation,static_cast<int>(r));
         std::fflush(stderr);
         throw std::runtime_error(operation);
     }
 }
 static void Mark(const char* stage) {
-    std::printf("Graphics probe stage: %s\\n",stage);
+    std::printf("Graphics probe stage: %s\n",stage);
     std::fflush(stdout);
 }
 static bool IsXboxOneGeneration(u32 device_id) {
@@ -39,12 +39,12 @@ int GraphicsProbe() {
     GAMING_DEVICE_MODEL_INFORMATION model{};
     const HRESULT model_result=GetGamingDeviceModelInformation(&model);
     if(FAILED(model_result)) {
-        std::fprintf(stderr,"GetGamingDeviceModelInformation: HRESULT 0x%08lx\\n",
+        std::fprintf(stderr,"GetGamingDeviceModelInformation: HRESULT 0x%08lx\n",
                      static_cast<unsigned long>(model_result));
         throw std::runtime_error("Query Xbox device model");
     }
     const bool xbox_one_generation=IsXboxOneGeneration(model.deviceId);
-    std::printf("Graphics probe: device id=0x%08x; presentation path=%s\\n",
+    std::printf("Graphics probe: device id=0x%08x; presentation path=%s\n",
                 model.deviceId,xbox_one_generation ? "Xbox One generation" : "Xbox Series / other");
     Mark("initialize Dozen ICD");
     InitializeDriver();
@@ -55,7 +55,7 @@ int GraphicsProbe() {
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*instance);
     Mark("enumerate Vulkan physical devices");
     auto devices=instance->enumeratePhysicalDevices(); Require(devices.result,"Enumerate Dozen devices");
-    std::printf("Graphics probe: Vulkan physical devices=%zu\\n",devices.value.size());
+    std::printf("Graphics probe: Vulkan physical devices=%zu\n",devices.value.size());
     if(devices.value.empty()) throw std::runtime_error("No Dozen device");
     auto physical=devices.value.front(); auto properties=physical.getProperties();
     std::printf("Dozen device: %s, Vulkan %u.%u\n",properties.deviceName.data(),VK_VERSION_MAJOR(properties.apiVersion),VK_VERSION_MINOR(properties.apiVersion));
@@ -69,14 +69,14 @@ int GraphicsProbe() {
         features.get<vk::PhysicalDeviceSynchronization2FeaturesKHR>().synchronization2);
     Mark("enumerate Vulkan device extensions");
     auto extensions=physical.enumerateDeviceExtensionProperties(); Require(extensions.result,"List driver extensions");
-    std::printf("Graphics probe: device extensions=%zu\\n",extensions.value.size());
+    std::printf("Graphics probe: device extensions=%zu\n",extensions.value.size());
     for(auto const& ext:extensions.value) std::printf("Vulkan extension: %s\n",ext.extensionName.data());
     Mark("query Vulkan queue families");
     u32 family=0; auto queues=physical.getQueueFamilyProperties();
-    std::printf("Graphics probe: queue families=%zu\\n",queues.size());
+    std::printf("Graphics probe: queue families=%zu\n",queues.size());
     while(family<queues.size() && !(queues[family].queueFlags&vk::QueueFlagBits::eGraphics)) ++family;
     if(family==queues.size()) throw std::runtime_error("No Dozen graphics queue");
-    std::printf("Graphics probe: selected graphics queue family=%u\\n",family);
+    std::printf("Graphics probe: selected graphics queue family=%u\n",family);
     Mark("create Vulkan logical device");
     float priority=1; vk::DeviceQueueCreateInfo queue_info{.queueFamilyIndex=family,.queueCount=1,.pQueuePriorities=&priority};
     std::array extensions_enabled{"VK_KHR_external_memory_win32","VK_KHR_dynamic_rendering"};
