@@ -36,17 +36,21 @@ static void LogD3D12Capabilities(ID3D12Device* device) {
     bool shader_model_found=false;
     for (const auto candidate : candidates) {
         D3D12_FEATURE_DATA_SHADER_MODEL model{candidate};
-        const HRESULT result=device->CheckFeatureSupport(
+        const HRESULT shader_result=device->CheckFeatureSupport(
             D3D12_FEATURE_SHADER_MODEL,&model,sizeof(model));
-        if (SUCCEEDED(result)) {
-            std::printf("D3D12 capabilities: highest shader model=0x%02x\\n",
-                        static_cast<unsigned>(model.HighestShaderModel));
-            shader_model_found=true;
+        if(shader_result==E_INVALIDARG) continue;
+        if(FAILED(shader_result)) {
+            std::printf("D3D12 shader-model query failed (0x%08lx)\\n",
+                        static_cast<unsigned long>(shader_result));
             break;
         }
+        std::printf("D3D12 capabilities: highest shader model=0x%02x\\n",
+                    static_cast<unsigned>(model.HighestShaderModel));
+        shader_model_found=true;
+        break;
     }
     if(!shader_model_found)
-        std::puts("D3D12 capabilities: shader-model query unsupported or failed");
+        std::puts("D3D12 capabilities: shader-model query returned no supported model");
 
     D3D12_FEATURE_DATA_D3D12_OPTIONS options{};
     HRESULT result=device->CheckFeatureSupport(
