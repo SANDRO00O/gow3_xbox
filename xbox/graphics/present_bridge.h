@@ -7,7 +7,7 @@ namespace Gow3Uwp {
 class Presenter {
 public:
     Presenter(vk::PhysicalDevice physical, vk::Device device, vk::Queue queue, u32 family,
-              u32 width, u32 height);
+              u32 width, u32 height, bool xbox_one_generation);
     ~Presenter();
     vk::Image Image() const;
     vk::ImageView View() const;
