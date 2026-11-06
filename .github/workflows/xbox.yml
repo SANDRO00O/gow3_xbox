@@ -1,9 +1,11 @@
 name: Xbox build
 
-# Builds God of War 3 Launcher for the Xbox Series X|S in Developer Mode (xbox/README.md): Dozen from the Mesa fork, then the
-# launcher and its signed package, published as a pre-release with the install steps when asked. The package holds no game
-# code. It runs only when started: Actions > Xbox build > Run workflow.
+# Builds the launcher package and Dozen driver. The experimental One S branch also gets a build on each push;
+# push-triggered runs upload an artifact only and never publish a release.
 on:
+  push:
+    branches:
+      - xbox-one-s/bring-up
   workflow_dispatch:
     inputs:
       release:
