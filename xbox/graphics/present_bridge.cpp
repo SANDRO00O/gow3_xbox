@@ -28,6 +28,42 @@ static void BridgeMark(const char* stage) {
     std::printf("Graphics bridge stage: %s\n",stage);
     std::fflush(stdout);
 }
+static void CheckExternalImageSupport(vk::PhysicalDevice physical) {
+    BridgeMark("query Vulkan D3D12_RESOURCE external image support");
+    VkPhysicalDeviceExternalImageFormatInfo external_info{
+        .sType=VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO,
+        .handleType=VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT};
+    VkPhysicalDeviceImageFormatInfo2 image_info{
+        .sType=VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+        .pNext=&external_info,
+        .format=VK_FORMAT_R8G8B8A8_UNORM,
+        .type=VK_IMAGE_TYPE_2D,
+        .tiling=VK_IMAGE_TILING_OPTIMAL,
+        .usage=VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+               VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+               VK_IMAGE_USAGE_TRANSFER_DST_BIT};
+    VkExternalImageFormatProperties external_properties{
+        .sType=VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES};
+    VkImageFormatProperties2 image_properties{
+        .sType=VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+        .pNext=&external_properties};
+    const auto get_properties=VULKAN_HPP_DEFAULT_DISPATCHER.vkGetPhysicalDeviceImageFormatProperties2;
+    if(!get_properties)
+        throw std::runtime_error("Vulkan image-format-properties2 entry point is unavailable");
+    const VkResult result=get_properties(
+        static_cast<VkPhysicalDevice>(physical),&image_info,&image_properties);
+    if(result!=VK_SUCCESS) {
+        std::fprintf(stderr,"Vulkan D3D12_RESOURCE image query failed: %d\n",
+                     static_cast<int>(result));
+        throw std::runtime_error("Query Vulkan D3D12_RESOURCE image support");
+    }
+    const VkExternalMemoryProperties& memory=external_properties.externalMemoryProperties;
+    std::printf("Vulkan RGBA8 D3D12_RESOURCE: features=0x%08x compatible-handles=0x%08x\n",
+                memory.externalMemoryFeatures,memory.compatibleHandleTypes);
+    std::fflush(stdout);
+    if(!(memory.externalMemoryFeatures&VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT))
+        throw std::runtime_error("Dozen does not report RGBA8 D3D12_RESOURCE images as exportable");
+}
 static void LogD3D12Capabilities(ID3D12Device* device) {
     std::printf("D3D12 capabilities: feature level=0x%04x\n",
                 static_cast<unsigned>(device->GetFeatureLevel()));
@@ -203,6 +239,7 @@ Presenter::Presenter(vk::PhysicalDevice physical,vk::Device device,vk::Queue que
     Check(p.native->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&p.fence)),"Create copy fence");
     p.event=CreateEventExW(nullptr,nullptr,0,EVENT_ALL_ACCESS);
     if(!p.event) throw std::runtime_error("Create presentation event");
+    CheckExternalImageSupport(physical);
     BridgeMark("create Vulkan D3D12-external image");
     const vk::ExternalMemoryImageCreateInfo external{.handleTypes=vk::ExternalMemoryHandleTypeFlagBits::eD3D12Resource};
     vk::ImageCreateInfo image_info{.pNext=&external,.imageType=vk::ImageType::e2D,
